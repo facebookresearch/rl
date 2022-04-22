@@ -109,6 +109,15 @@ pip install gym gym[accept-rom-license] pygame gym_retro
 pip install pytest
 ```
 
+Alternatively, extra dependencies can be installed using
+```
+pip install ".[atari,dm_control,gym_continuous,rendering,tests,utils,smac]"
+```
+or a selection of these.
+
+**N.B.**: SMAC (Starcraft Multiagent Contest) requires you to install Starcraft II. 
+Support on non-linux machines is limited. Please refer to the [original repo](https://github.com/oxwhirl/smac) for more information.
+
 **Troubleshooting**
 
 If a `ModuleNotFoundError: No module named ‘torchrl._torchrl` errors occurs, it means that the C++ extensions were not installed or not found. 

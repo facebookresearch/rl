@@ -10,8 +10,9 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from build_tools import setup_helpers
 from setuptools import setup, find_packages
+
+from build_tools import setup_helpers
 
 
 def _get_pytorch_version():
@@ -78,6 +79,15 @@ def _main():
             "clean": clean,
         },
         install_requires=[pytorch_package_dep, "numpy"],
+        extras_require={
+            "atari": ["gym", "atari-py", "ale-py", "gym[accept-rom-license]", "pygame"],
+            "dm_control": ["dm_control"],
+            "gym_continuous": ["mujoco-py", "mujoco"],
+            "rendering": ["moviepy"],
+            "tests": ["pytest"],
+            "utils": ["tqdm", "configargparse"],
+            "smac": ["smac @ git+https://github.com/oxwhirl/smac.git"],
+        },
     )
 
 

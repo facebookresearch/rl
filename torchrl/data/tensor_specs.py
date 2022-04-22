@@ -33,6 +33,8 @@ __all__ = [
     "NdUnboundedContinuousTensorSpec",
     "BinaryDiscreteTensorSpec",
     "MultOneHotDiscreteTensorSpec",
+    "NdOneHotDiscreteTensorSpec",
+    "CustomNdOneHotDiscreteTensorSpec",
     "CompositeSpec",
 ]
 
@@ -778,6 +780,99 @@ class MultOneHotDiscreteTensorSpec(OneHotDiscreteTensorSpec):
     def _project(self, val: torch.Tensor) -> torch.Tensor:
         vals = self._split(val)
         return torch.cat([super()._project(_val) for _val in vals], -1)
+
+
+@dataclass(repr=False)
+class NdOneHotDiscreteTensorSpec(OneHotDiscreteTensorSpec):
+    """An N-dimensional One hot discrete tensor spec data class"""
+
+    def __init__(
+        self,
+        n: int,
+        *shape: int,
+        device: Optional[DEVICE_TYPING] = None,
+        dtype: Optional[Union[str, torch.dtype]] = torch.long,
+        use_register: bool = False,
+    ):
+        dtype, device = _default_dtype_and_device(dtype, device)
+        self.use_register = use_register
+        space = DiscreteBox(
+            n,
+        )
+        self.shape = shape
+        total_shape = torch.Size(
+            (
+                *shape,
+                space.n,
+            )
+        )
+        super(OneHotDiscreteTensorSpec, self).__init__(
+            total_shape, space, device, dtype, "discrete"
+        )
+
+    def rand(self, shape=torch.Size([])) -> torch.Tensor:
+        return torch.nn.functional.gumbel_softmax(
+            torch.rand(*shape, self.d, self.space.n, device=self.device),
+            hard=True,
+            dim=-1,
+        ).to(torch.long)
+
+
+@dataclass(repr=False)
+class CustomNdOneHotDiscreteTensorSpec(NdOneHotDiscreteTensorSpec):
+    """A masked N-dimensional One-Hot discrete tensor spec data-class
+
+    The aim of this class is to check / project or document a discrete space
+    when it varies from environment to environment, or from step to step in the
+    same environment.
+
+    """
+
+    def __init__(
+        self,
+        mask: torch.Tensor,
+        device: Optional[DEVICE_TYPING] = None,
+        dtype: Optional[Union[str, torch.dtype]] = torch.long,
+        use_register: bool = False,
+    ):
+        if mask.dtype is not torch.bool:
+            raise RuntimeError(
+                f"Expected a mask with dtype torch.bool but got {mask.dtype}"
+            )
+        if (mask.sum(-1) == 0).any():
+            raise RuntimeError("Got an empty mask for some dimension.")
+        self.mask = mask
+        *shape, n = mask.shape
+
+        dtype, device = _default_dtype_and_device(dtype, device)
+        self.use_register = use_register
+        space = DiscreteBox(
+            n,
+        )
+        self.shape = shape
+        total_shape = torch.Size(
+            (
+                *shape,
+                space.n,
+            )
+        )
+        super(OneHotDiscreteTensorSpec, self).__init__(
+            total_shape, space, device, dtype, "discrete"
+        )
+
+    def to(self, dest):
+        out = super().to(dest)
+        out.mask = self.mask.to(dest)
+        return out
+
+    def rand(self, shape=torch.Size([])) -> torch.Tensor:
+        mask = self.mask.expand(*shape, *self.mask.shape)
+        r = torch.rand(mask.shape, device=mask.device).masked_fill_(~mask, 0.0)
+        return (r == r.max(-1, keepdim=True)[0]).to(torch.long)
+
+    def is_in(self, value):
+        congruent = self.mask & value.to(torch.bool)
+        return (congruent.sum(-1) == 1).all()
 
 
 class CompositeSpec(TensorSpec):

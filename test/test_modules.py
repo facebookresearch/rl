@@ -3,14 +3,19 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import argparse
 from numbers import Number
 
+import functorch
 import pytest
 import torch
 from _utils_internal import get_available_devices
-from torch import nn
+from torch import nn, distributions as D
 from torchrl.data import TensorDict
-from torchrl.data.tensor_specs import OneHotDiscreteTensorSpec
+from torchrl.data.tensor_specs import (
+    OneHotDiscreteTensorSpec,
+    CustomNdOneHotDiscreteTensorSpec,
+)
 from torchrl.modules import (
     QValueActor,
     ActorValueOperator,
@@ -18,7 +23,8 @@ from torchrl.modules import (
     ValueOperator,
     ProbabilisticActor,
 )
-from torchrl.modules.models import NoisyLinear, MLP, NoisyLazyLinear
+from torchrl.modules.distributions import OneHotCategorical
+from torchrl.modules.models import NoisyLinear, MLP, NoisyLazyLinear, MaskedLogitPolicy
 
 
 @pytest.mark.parametrize("in_features", [3, 10, None])
@@ -175,5 +181,48 @@ def test_actorcritic(device):
     ) == len(policy_params)
 
 
+@pytest.mark.parametrize("device", get_available_devices())
+@pytest.mark.parametrize("functional", [True, False])
+@pytest.mark.parametrize(
+    "mask", [torch.tensor([False, True, False, True, False]), "random"]
+)
+def test_maskedlogit(device, functional, mask):
+    batch = 10
+    torch.manual_seed(0)
+    if isinstance(mask, str):
+        random_mask = True
+        mask = torch.zeros(batch, 5, dtype=torch.bool, device=device).bernoulli_()
+    else:
+        random_mask = False
+        mask = mask.to(device)
+    policy_net = nn.Linear(3, 5, bias=False).to(device)  # model that returns logits
+
+    policy_net_wrapped = MaskedLogitPolicy(policy_net)
+    if functional:
+        policy_net_wrapped, params = functorch.make_functional(policy_net_wrapped)
+    observation = torch.randn(batch, 3, device=device)
+    if functional:
+        logits_masked = policy_net_wrapped(params, observation, mask)
+    else:
+        logits_masked = policy_net_wrapped(observation, mask)
+    c = D.Categorical(logits=logits_masked)
+    samples = c.sample((1000,))
+    samples_uniques = samples.unique()
+    if random_mask:
+        mask_expand = mask.expand(1000, batch, 5)
+        assert mask_expand.gather(-1, samples.unsqueeze(-1)).all()
+    else:
+        assert ((samples_uniques == 1) | (samples_uniques == 3)).all()
+
+    # test synergy with CustomNdOneHotDiscreteTensorSpec
+    spec = CustomNdOneHotDiscreteTensorSpec(mask=mask)
+    c = OneHotCategorical(logits=logits_masked)
+    assert spec.is_in(c.sample((1000,)))
+    c = OneHotCategorical(logits=torch.randn_like(logits_masked))
+    with pytest.raises(AssertionError):
+        assert spec.is_in(c.sample((1000,)))
+
+
 if __name__ == "__main__":
-    pytest.main([__file__])
+    args, unknown = argparse.ArgumentParser().parse_known_args()
+    pytest.main([__file__, "--capture", "no", "--exitfirst"] + unknown)

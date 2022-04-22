@@ -8,7 +8,7 @@ from typing import Dict, List, Optional, Sequence, Tuple, Type, Union
 
 import numpy as np
 import torch
-from torch import nn
+from torch import nn, Tensor
 from torch.nn import functional as F
 
 from torchrl.modules.models.utils import (
@@ -28,6 +28,7 @@ __all__ = [
     "DdpgMlpActor",
     "DdpgMlpQNet",
     "LSTMNet",
+    "MaskedLogitPolicy",
 ]
 
 
@@ -892,6 +893,55 @@ class DdpgMlpQNet(nn.Module):
     def forward(self, observation: torch.Tensor, action: torch.Tensor) -> torch.Tensor:
         value = self.mlp2(torch.cat([self.mlp1(observation), action], -1))
         return value
+
+
+class MaskedLogitPolicy(nn.Module):
+    """Wrapper for logit output masking.
+
+    This module takes as input a logit tensor and a mask, and returns a similar
+    logit tensor where invalid values have been masked out.
+
+    This is aimed to be used in environments where the space of valid actions
+    is dynamic, or in settings where multiple tasks with different discrete
+    action space are trained using the same policy model.
+
+    Examples:
+        >>> policy_net = nn.Linear(3, 5, bias=False)  # model that returns logits
+        >>> mask = torch.tensor([False, True, False, True, False])
+        >>> policy_net_wrapped = MaskedLogitPolicy(policy_net)
+        >>> observation = torch.zeros(2, 3)
+        >>> logits_masked = policy_net_wrapped(observation, mask)
+        >>> print(logits_masked)
+        (tensor([[-inf, 0., -inf, 0., -inf],
+                [-inf, 0., -inf, 0., -inf]], grad_fn=<MaskedFillBackward0>),)
+
+    This class also supports functional modules:
+        >>> import functorch
+        >>> policy_net = nn.Linear(3, 5, bias=False)  # model that returns logits
+        >>> mask = torch.tensor([False, True, False, True, False])
+        >>> policy_net_wrapped = MaskedLogitPolicy(policy_net)
+        >>> fpolicy_net_wrapped, params = functorch.make_functional(policy_net_wrapped)
+        >>> observation = torch.zeros(2, 3)
+        >>> logits_masked = fpolicy_net_wrapped(params, observation, mask)
+        >>> print(logits_masked)
+        (tensor([[-inf, 0., -inf, 0., -inf],
+                [-inf, 0., -inf, 0., -inf]], grad_fn=<MaskedFillBackward0>),)
+    """
+
+    def __init__(self, policy_module):
+        super().__init__()
+        self.policy_module = policy_module
+
+    def forward(self, *inputs, **kwargs):
+        *inputs, mask = inputs
+        outputs = self.policy_module(*inputs, **kwargs)
+        if isinstance(outputs, Tensor):
+            _outputs = outputs
+        else:
+            _outputs = outputs[0]
+        # first output is logits
+        _outputs.masked_fill_(~mask.to(torch.bool).expand_as(_outputs), -float("inf"))
+        return outputs
 
 
 class LSTMNet(nn.Module):

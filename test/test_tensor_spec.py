@@ -3,6 +3,8 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import argparse
+
 import numpy as np
 import pytest
 import torch
@@ -15,6 +17,7 @@ from torchrl.data.tensor_specs import (
     BoundedTensorSpec,
     UnboundedContinuousTensorSpec,
     OneHotDiscreteTensorSpec,
+    CustomNdOneHotDiscreteTensorSpec,
 )
 
 
@@ -226,6 +229,29 @@ def test_mult_onehot(shape, ns):
         assert (ts.encode(np_r) == r).all()
 
 
+@pytest.mark.parametrize("n", range(10, 12))
+@pytest.mark.parametrize("shape", [torch.Size([]), torch.Size([10])])
+def test_custom_ndonehot(n, shape):
+    torch.manual_seed(0)
+    np.random.seed(0)
+
+    with pytest.raises(RuntimeError):
+        mask = torch.zeros(*shape, n).bernoulli_()
+        ts = CustomNdOneHotDiscreteTensorSpec(mask)
+    mask = torch.zeros(*shape, n, dtype=torch.bool).bernoulli_()
+    ts = CustomNdOneHotDiscreteTensorSpec(mask)
+
+    for _ in range(100):
+        r = ts.rand([10])
+        assert r.shape == torch.Size([10, *shape, n])
+        assert ts.is_in(r), r
+        assert ((r == 0) | (r == 1)).all()
+        r_numpy = r.argmax(-1).numpy()
+        assert (ts.encode(r_numpy) == r).all()
+        assert (ts.encode(ts.to_numpy(r)) == r).all()
+        assert (r.sum(-1) == 1).all()
+
+
 @pytest.mark.parametrize("dtype", [torch.float32, torch.float16, torch.float64, None])
 @pytest.mark.parametrize(
     "shape",
@@ -260,4 +286,5 @@ def test_composite(shape, dtype):
 
 
 if __name__ == "__main__":
-    pytest.main([__file__])
+    args, unknown = argparse.ArgumentParser().parse_known_args()
+    pytest.main([__file__, "--capture", "no", "--exitfirst"] + unknown)
