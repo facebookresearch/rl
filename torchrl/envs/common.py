@@ -129,6 +129,7 @@ class _EnvClass:
     reward_spec = None
     observation_spec = None
     from_pixels: bool
+    _inplace_update: bool = True
     device = torch.device("cpu")
     batch_size = torch.Size([])
 
@@ -139,7 +140,7 @@ class _EnvClass:
     ):
         self.device = device
         self.dtype = dtype_map.get(dtype, dtype)
-        self._is_done = torch.zeros(self.batch_size, device=device)
+        self.is_done = torch.zeros(self.batch_size, device=device)
         self._cache = dict()
         self.is_closed = False
 
@@ -192,7 +193,7 @@ class _EnvClass:
             raise TypeError(
                 f"expected done.dtype to be torch.bool but got {tensordict_out.get('done').dtype}"
             )
-        tensordict.update(tensordict_out, inplace=True)
+        tensordict.update(tensordict_out, inplace=self._inplace_update)
 
         del tensordict_out
         return tensordict
@@ -631,7 +632,7 @@ class GymLikeEnv(_EnvWrapper):
             reward = np.nan
         reward = self._to_tensor(reward, dtype=self.reward_spec.dtype)
         done = self._to_tensor(done, dtype=torch.bool)
-        self._is_done = done
+        self.is_done = done
 
         tensordict_out = TensorDict({}, batch_size=tensordict.batch_size)
         tensordict_out.update(obs_dict)
@@ -653,7 +654,7 @@ class GymLikeEnv(_EnvWrapper):
         tensordict_out = TensorDict(
             source=self._read_obs(obs), batch_size=self.batch_size
         )
-        self._is_done = torch.zeros(1, dtype=torch.bool)
+        self._is_done = torch.zeros(self.batch_size, dtype=torch.bool)
         tensordict_out.set("done", self._is_done)
         return tensordict_out
 

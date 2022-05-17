@@ -53,6 +53,7 @@ __all__ = [
     "NoopResetEnv",
     "BinarizeReward",
     "PinMemoryTransform",
+    "MultiAgentTransform",
     "VecNorm",
     "gSDENoise",
 ]
@@ -127,7 +128,7 @@ class Transform(nn.Module):
         return tensordict
 
     def forward(self, tensordict: _TensorDict) -> _TensorDict:
-        self._call(tensordict)
+        tensordict = self._call(tensordict)
         return tensordict
 
     def _inv_apply(self, obs: torch.Tensor) -> torch.Tensor:
@@ -147,6 +148,9 @@ class Transform(nn.Module):
     def inv(self, tensordict: _TensorDict) -> _TensorDict:
         self._inv_call(tensordict)
         return tensordict
+
+    def transform_batch_size(self, _batch_size: torch.Size) -> torch.Size:
+        return _batch_size
 
     def transform_action_spec(self, action_spec: TensorSpec) -> TensorSpec:
         """Transforms the action spec such that the resulting spec matches
@@ -257,10 +261,16 @@ class TransformedEnv(_EnvClass):
         self._action_spec = None
         self._reward_spec = None
         self._observation_spec = None
-        self.batch_size = self.env.batch_size
+        self._batch_size = self.env.batch_size
         self.is_closed = False
 
         super().__init__(**kwargs)
+
+    @property
+    def batch_size(self):
+        batch_size = self.env.batch_size
+        batch_size = self.transform.transform_batch_size(batch_size)
+        return batch_size
 
     @property
     def observation_spec(self) -> TensorSpec:
@@ -1363,6 +1373,42 @@ class gSDENoise(Transform):
             ),
         )
         return tensordict
+
+
+class MultiAgentTransform(Transform):
+    inplace = False
+
+    def __init__(self, max_agents: int, agent_key="agents"):
+        super().__init__([])
+        self.agent_key = agent_key
+        self.max_agents = max_agents
+
+    def _apply(self, obs: torch.Tensor, agents: torch.Tensor) -> None:
+        # this will probably break if obs carries gradients
+        obs_out = torch.zeros(
+            self.max_agents, *obs.shape[1:], dtype=obs.dtype, device=obs.device
+        )
+        obs_out[agents] = obs
+        return obs_out
+
+    def _call(self, tensordict: TensorDict) -> TensorDict:
+        self._check_inplace()
+        agents = tensordict.get(self.agent_key)
+        tensordict = TensorDict(
+            {
+                _obs_key: self._apply(item, agents)
+                for _obs_key, item in tensordict.items()
+            },
+            [self.max_agents, *tensordict.batch_size[1:]],
+        )
+
+        mask = torch.zeros(self.max_agents, dtype=torch.bool)
+        mask[agents] = 1
+        tensordict.set("mask", mask)
+        return tensordict
+
+    def transform_batch_size(self, batch_size: torch.Size) -> torch.Size:
+        return torch.Size([self.max_agents, *batch_size[1:]])
 
 
 class VecNorm(Transform):
