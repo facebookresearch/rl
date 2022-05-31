@@ -6,12 +6,12 @@
 import torch
 
 from torchrl.data import TensorDict
+from torchrl.data.tensordict.tensordict import _TensorDict
 from torchrl.envs.utils import step_tensordict
 from torchrl.modules import (
     DistributionalQValueActor,
     QValueActor,
 )
-from ...data.tensordict.tensordict import _TensorDict
 from .common import _LossModule
 from .utils import distance_loss, next_state_value
 

@@ -18,7 +18,7 @@ The code is aimed at supporting research in RL. Most of it is written in python 
 This repo attempts to align with the existing pytorch ecosystem libraries in that it has a dataset pillar ([torchrl/envs](torchrl/envs)), [transforms](torchrl/envs/transforms), [models](torchrl/modules), data utilities (e.g. collectors and containers), etc. 
 TorchRL aims at having as few dependencies as possible (python standard library, numpy and pytorch). Common environment libraries (e.g. OpenAI gym) are only optional.
 
-On the low-level end, torchrl comes with a set of highly re-usable functionals for [cost functions](torchrl/objectives/costs), [returns](torchrl/objectives/returns) and data processing.
+On the low-level end, torchrl comes with a set of highly re-usable functionals for [cost functions](torchrl/objectives/), [returns](torchrl/objectives/value) and data processing.
 
 On the high-level end, torchrl provides:
 - multiprocess [data collectors](torchrl/collectors/collectors.py);

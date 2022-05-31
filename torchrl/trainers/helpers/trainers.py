@@ -15,8 +15,8 @@ from torchrl.collectors.collectors import _DataCollector
 from torchrl.data import ReplayBuffer
 from torchrl.envs.common import _EnvClass
 from torchrl.modules import TensorDictModule, TensorDictModuleWrapper, reset_noise
-from torchrl.objectives.costs.common import _LossModule
-from torchrl.objectives.costs.utils import _TargetNetUpdate
+from torchrl.objectives.common import _LossModule
+from torchrl.objectives.utils import _TargetNetUpdate
 from torchrl.trainers.trainers import (
     Trainer,
     SelectKeys,

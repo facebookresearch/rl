@@ -14,8 +14,8 @@ from torch import Tensor
 from torchrl.data.tensordict.tensordict import _TensorDict, TensorDict
 from torchrl.envs.utils import set_exploration_mode, step_tensordict
 from torchrl.modules import TensorDictModule
-from torchrl.objectives.costs.common import _LossModule
-from torchrl.objectives.costs.utils import (
+from torchrl.objectives.common import _LossModule
+from torchrl.objectives.utils import (
     distance_loss,
     hold_out_params,
     next_state_value as get_next_state_value,

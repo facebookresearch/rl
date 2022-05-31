@@ -34,7 +34,7 @@ from torchrl.envs.common import _EnvClass
 from torchrl.envs.transforms import TransformedEnv
 from torchrl.envs.utils import set_exploration_mode
 from torchrl.modules import TensorDictModule
-from torchrl.objectives.costs.common import _LossModule
+from torchrl.objectives.common import _LossModule
 
 REPLAY_BUFFER_CLASS = {
     "prioritized": TensorDictPrioritizedReplayBuffer,

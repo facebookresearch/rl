@@ -20,7 +20,7 @@ from torch import Tensor
 from torchrl.data.tensordict.tensordict import _TensorDict
 from torchrl.envs.utils import step_tensordict
 from torchrl.modules import TensorDictModule
-from torchrl.objectives.returns.functional import (
+from torchrl.objectives.value.functional import (
     generalized_advantage_estimate,
     td_lambda_advantage_estimate,
     vec_td_lambda_advantage_estimate,

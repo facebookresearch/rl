@@ -1,3 +1,8 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+
 from typing import Optional, Callable
 
 import torch
@@ -6,7 +11,7 @@ from torchrl.data.tensordict.tensordict import _TensorDict, TensorDict
 from torchrl.envs.utils import step_tensordict
 from torchrl.modules import TensorDictModule, ProbabilisticTensorDictModule
 from torchrl.objectives import distance_loss
-from torchrl.objectives.costs.common import _LossModule
+from torchrl.objectives.common import _LossModule
 
 
 class ReinforceLoss(_LossModule):

@@ -29,12 +29,12 @@ from torchrl.objectives import (
     SACLoss,
     SoftUpdate,
 )
-from torchrl.objectives.costs.common import _LossModule
-from torchrl.objectives.costs.redq import REDQLoss
+from torchrl.objectives.common import _LossModule
+from torchrl.objectives.redq import REDQLoss
 
 # from torchrl.objectives.costs.redq import REDQLoss
-from torchrl.objectives.costs.utils import _TargetNetUpdate
-from torchrl.objectives.returns.advantages import GAE
+from torchrl.objectives.utils import _TargetNetUpdate
+from torchrl.objectives.value.advantages import GAE
 
 
 def make_target_updater(
