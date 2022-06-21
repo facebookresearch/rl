@@ -9,7 +9,7 @@ import pathlib
 import warnings
 from collections import OrderedDict, defaultdict
 from textwrap import indent
-from typing import Callable, Dict, Optional, Union, Sequence, Tuple, Type
+from typing import Callable, Dict, Optional, Union, Sequence, Tuple, Type, List
 
 import numpy as np
 import torch.nn
@@ -31,7 +31,7 @@ from torchrl.data import (
     TensorDictReplayBuffer,
 )
 from torchrl.data.tensordict.tensordict import _TensorDict
-from torchrl.data.utils import expand_right
+from torchrl.data.utils import expand_right, DEVICE_TYPING
 from torchrl.envs.common import _EnvClass
 from torchrl.envs.transforms import TransformedEnv
 from torchrl.envs.utils import set_exploration_mode
@@ -517,6 +517,10 @@ class ReplayBufferTrainer:
         replay_buffer (ReplayBuffer): replay buffer to be used.
         batch_size (int): batch size when sampling data from the
             latest collection or from the replay buffer.
+        memmap (bool, optional): if True, a memmap tensordict is created.
+            Default is False.
+        device (device, optional): device where the samples must be placed.
+            Default is cpu.
 
     Examples:
         >>> rb_trainer = ReplayBufferTrainer(replay_buffer=replay_buffer, batch_size=N)
@@ -526,9 +530,17 @@ class ReplayBufferTrainer:
 
     """
 
-    def __init__(self, replay_buffer: ReplayBuffer, batch_size: int) -> None:
+    def __init__(
+        self,
+        replay_buffer: ReplayBuffer,
+        batch_size: int,
+        memmap: bool = False,
+        device: DEVICE_TYPING = "cpu",
+    ) -> None:
         self.replay_buffer = replay_buffer
         self.batch_size = batch_size
+        self.memmap = memmap
+        self.device = device
 
     def extend(self, batch: _TensorDict) -> _TensorDict:
         if "mask" in batch.keys():
@@ -537,10 +549,16 @@ class ReplayBufferTrainer:
             batch = batch.reshape(-1)
         # reward_training = batch.get("reward").mean().item()
         batch = batch.cpu()
+        if self.memmap:
+            # We can already place the tensords on the device if they're memmap,
+            # as this is a lazy op
+            batch = batch.memmap_().to(self.device)
         self.replay_buffer.extend(batch)
 
     def sample(self, batch: _TensorDict) -> _TensorDict:
-        return self.replay_buffer.sample(self.batch_size)
+        sample = self.replay_buffer.sample(self.batch_size)
+        sample = sample.contiguous()
+        return sample.to(self.device)
 
     def update_priority(self, batch: _TensorDict) -> None:
         if isinstance(self.replay_buffer, TensorDictPrioritizedReplayBuffer):

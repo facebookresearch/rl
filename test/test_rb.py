@@ -96,11 +96,15 @@ def test_prb(priority_key, contiguous, device):
     )
 
 
-def test_rb_trajectories():
+@pytest.mark.parametrize("stack", [False, True])
+def test_rb_trajectories(stack):
     traj_td = TensorDict(
         {"obs": torch.randn(3, 4, 5), "actions": torch.randn(3, 4, 2)},
         batch_size=[3, 4],
     )
+    if stack:
+        traj_td = torch.stack([td.to_tensordict() for td in traj_td], 0)
+
     rb = TensorDictPrioritizedReplayBuffer(
         5,
         alpha=0.7,
@@ -117,7 +121,9 @@ def test_rb_trajectories():
     assert sampled_td.batch_size == torch.Size([3])
 
     # set back the trajectory length
-    sampled_td_filtered = sampled_td.to_tensordict().exclude("_weight", "index")
+    sampled_td_filtered = sampled_td.to_tensordict().exclude(
+        "_weight", "index", "td_error"
+    )
     sampled_td_filtered.batch_size = [3, 4]
 
 

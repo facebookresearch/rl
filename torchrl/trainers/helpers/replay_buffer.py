@@ -17,24 +17,30 @@ from torchrl.data import (
 __all__ = ["make_replay_buffer", "parser_replay_args"]
 
 
+def collate_fn(batch):
+    batch = torch.stack(batch, 0)
+    batch = batch.contiguous()
+    return batch
+
+
 def make_replay_buffer(device: DEVICE_TYPING, args: Namespace) -> ReplayBuffer:
     """Builds a replay buffer using the arguments build from the parser returned by parser_replay_args."""
     device = torch.device(device)
     if not args.prb:
         buffer = TensorDictReplayBuffer(
             args.buffer_size,
-            # collate_fn=InPlaceSampler(device),
+            collate_fn=collate_fn,
             pin_memory=device != torch.device("cpu"),
-            prefetch=3,
+            prefetch=args.optim_steps_per_batch,
         )
     else:
         buffer = TensorDictPrioritizedReplayBuffer(
             args.buffer_size,
             alpha=0.7,
             beta=0.5,
-            # collate_fn=InPlaceSampler(device),
+            collate_fn=collate_fn,
             pin_memory=device != torch.device("cpu"),
-            prefetch=3,
+            prefetch=args.optim_steps_per_batch,
         )
     return buffer
 

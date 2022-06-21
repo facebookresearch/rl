@@ -125,6 +125,8 @@ def make_trainer(
         weight_decay=args.weight_decay,
         **optimizer_kwargs,
     )
+    device = next(loss_module.parameters()).device
+
     if args.lr_scheduler == "cosine":
         optim_scheduler = CosineAnnealingLR(
             optimizer,
@@ -170,12 +172,15 @@ def make_trainer(
 
     if args.selected_keys:
         trainer.register_op("batch_process", SelectKeys(args.selected_keys))
+    # store on disk
     trainer.register_op("batch_process", lambda batch: batch.cpu())
 
     if replay_buffer is not None:
         # replay buffer is used 2 or 3 times: to register data, to sample
         # data and possibly to update priorities
-        rb_trainer = ReplayBufferTrainer(replay_buffer, args.batch_size)
+        rb_trainer = ReplayBufferTrainer(
+            replay_buffer, args.batch_size, memmap=False, device=device
+        )
         trainer.register_op("batch_process", rb_trainer.extend)
         trainer.register_op("process_optim_batch", rb_trainer.sample)
         trainer.register_op("post_loss", rb_trainer.update_priority)

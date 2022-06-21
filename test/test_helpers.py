@@ -37,7 +37,7 @@ def _assert_keys_match(td, expeceted_keys):
     d = set(td_keys) - set(expeceted_keys)
     assert len(d) == 0, f"{d} is in tensordict but unexpected"
     d = set(expeceted_keys) - set(td_keys)
-    assert len(d) == 0, f"{d} is expecter but not in tensordict"
+    assert len(d) == 0, f"{d} is expected but not in tensordict"
     assert len(td_keys) == len(expeceted_keys)
 
 

@@ -35,11 +35,27 @@ def split_trajectories(rollout_tensordict: _TensorDict) -> _TensorDict:
     ndim = len(rollout_tensordict.batch_size)
     splits = traj_ids.view(-1)
     splits = [(splits == i).sum().item() for i in splits.unique_consecutive()]
-    out_splits = {
-        key: _d.contiguous().view(-1, *_d.shape[ndim:]).split(splits, 0)
-        for key, _d in rollout_tensordict.items()
-        # if key not in ("step_count", "traj_ids")
-    }
+    # if all splits are identical then we can skip this function
+    if len(set(splits)) == 1:
+        rollout_tensordict.set(
+            "mask",
+            torch.ones(
+                rollout_tensordict.shape,
+                device=rollout_tensordict.device,
+                dtype=torch.bool,
+            ),
+        )
+        return rollout_tensordict
+    try:
+        out_splits = {
+            key: _d.contiguous().view(-1, *_d.shape[ndim:]).split(splits, 0)
+            for key, _d in rollout_tensordict.items()
+            # if key not in ("step_count", "traj_ids")
+        }
+    except RuntimeError as err:
+        torch.save({"td": rollout_tensordict, "err": err}, "dump.t")
+        raise err
+
     # select complete rollouts
     dones = out_splits["done"]
     valid_ids = list(range(len(dones)))
