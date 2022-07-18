@@ -862,6 +862,8 @@ dtype=torch.float32)},
             device=self.device,
             _meta_source=dict(self._dict_meta),
             _run_checks=False,
+            # _is_shared=self._is_shared,  # FIX: this is not accurate
+            # _is_memmap=self._is_memmap,
         )
 
     def zero_(self) -> _TensorDict:
@@ -1720,13 +1722,15 @@ class TensorDict(_TensorDict):
         device: Optional[DEVICE_TYPING] = None,
         _meta_source: Optional[dict] = None,
         _run_checks: bool = True,
+        _is_shared: Optional[bool] = None,
+        _is_memmap: Optional[bool] = None,
     ) -> object:
         super().__init__()
 
         self._tensordict: Dict = dict()
 
-        self._is_shared = None
-        self._is_memmap = None
+        self._is_shared = _is_shared
+        self._is_memmap = _is_memmap
 
         if not isinstance(source, (_TensorDict, dict)):
             raise ValueError(
@@ -1923,7 +1927,10 @@ class TensorDict(_TensorDict):
             raise TypeError(f"Expected key to be a string but found {type(key)}")
 
         if self._is_shared is None:
-            self._is_shared = value.is_shared()
+            try:
+                self._is_shared = value.is_shared()
+            except NotImplementedError:
+                pass
         if self._is_memmap is None:
             self._is_memmap = isinstance(value, MemmapTensor)
 
@@ -2196,6 +2203,8 @@ class TensorDict(_TensorDict):
             source=d,
             _meta_source=d_meta,
             _run_checks=False,
+            _is_memmap=self._is_memmap,
+            _is_shared=self._is_shared,
         )
 
     def keys(self) -> KeysView:

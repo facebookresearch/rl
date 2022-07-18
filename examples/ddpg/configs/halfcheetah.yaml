@@ -1,0 +1,11 @@
+env_name: HalfCheetah-v2
+env_task: ""
+env_library: gym
+async_collection: 1
+record_video: 1
+normalize_rewards_online: 1
+normalize_rewards_online_scale: 10
+frames_per_batch: 256
+frame_skip: 4
+optim_steps_per_batch: 1
+batch_size: 256

@@ -426,7 +426,9 @@ class Trainer:
         if self.clip_grad_norm:
             gn = nn.utils.clip_grad_norm_(self._params, self.clip_norm)
         else:
-            gn = sum([p.grad.pow(2).sum() for p in self._params]).sqrt()
+            gn = sum(
+                [p.grad.pow(2).sum() for p in self._params if p.grad is not None]
+            ).sqrt()
             nn.utils.clip_grad_value_(self._params, self.clip_norm)
         return float(gn)
 
@@ -892,9 +894,13 @@ class Recorder:
 
                 out = dict()
                 for key in self.log_keys:
-                    value = td_record.get(key).float().mean()
+                    value = td_record.get(key).float()
                     if key == "reward":
-                        value = value / self.frame_skip
+                        mean_value = value.mean() / self.frame_skip
+                        total_value = value.sum()
+                        out[self.out_keys[key]] = mean_value
+                        out["total_" + self.out_keys[key]] = total_value
+                        continue
                     if key == "solved":
                         value = value.any().float()
                     out[self.out_keys[key]] = value

@@ -66,7 +66,7 @@ DEFAULT_REWARD_SCALING = {
 }
 
 
-@hydra.main(version_base=None, config_path=None, config_name="config")
+@hydra.main(version_base=None, config_path=".", config_name="config")
 def main(cfg: "DictConfig"):
     from torchrl.trainers.loggers import TensorboardLogger
 
@@ -199,19 +199,18 @@ def main(cfg: "DictConfig"):
         cfg,
     )
 
-    def select_keys(batch):
-        return batch.select(
-            "reward",
-            "done",
-            "steps_to_next_obs",
-            "pixels",
-            "next_pixels",
-            "observation_vector",
-            "next_observation_vector",
-            "action",
-        )
-
-    trainer.register_op("batch_process", select_keys)
+    # def select_keys(batch):
+    #     return batch.select(
+    #         "reward",
+    #         "done",
+    #         "steps_to_next_obs",
+    #         "pixels",
+    #         "next_pixels",
+    #         "observation_vector",
+    #         "next_observation_vector",
+    #         "action",
+    #     )
+    # trainer.register_op("batch_process", select_keys)
 
     final_seed = collector.set_seed(cfg.seed)
     print(f"init seed: {cfg.seed}, final seed: {final_seed}")

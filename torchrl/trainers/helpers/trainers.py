@@ -148,7 +148,8 @@ def make_trainer(
         cfg.record_frames = 10
         cfg.record_interval = 10
 
-    optimizer_kwargs = {} if cfg.optimizer != "adam" else {"betas": (0.0, 0.9)}
+    # optimizer_kwargs = {} if cfg.optimizer != "adam" else {"betas": (0.0, 0.9)}
+    optimizer_kwargs = {} if cfg.optimizer != "adam" else {"betas": (0.9, 0.99)}
     optimizer = OPTIMIZERS[cfg.optimizer](
         loss_module.parameters(),
         lr=cfg.lr,

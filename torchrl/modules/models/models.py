@@ -752,7 +752,7 @@ class DdpgMlpActor(nn.Module):
             "in_features": None,
             "out_features": action_dim,
             "depth": 2,
-            "num_cells": [400, 300],
+            "num_cells": [256, 256],
             "activation_class": nn.ELU,
             "bias_last_layer": True,
         }
@@ -881,20 +881,23 @@ class DdpgMlpQNet(nn.Module):
         mlp_net_kwargs_net2: Optional[dict] = None,
     ):
         super().__init__()
-        mlp1_net_default_kwargs = {
-            "in_features": None,
-            "out_features": 400,
-            "depth": 0,
-            "num_cells": [],
-            "activation_class": nn.ELU,
-            "bias_last_layer": True,
-            "activate_last_layer": True,
-        }
-        mlp_net_kwargs_net1: Dict = (
-            mlp_net_kwargs_net1 if mlp_net_kwargs_net1 is not None else dict()
-        )
-        mlp1_net_default_kwargs.update(mlp_net_kwargs_net1)
-        self.mlp1 = MLP(**mlp1_net_default_kwargs)
+        if mlp_net_kwargs_net1 is not None and not len(mlp_net_kwargs_net1):
+            self.mlp1 = None
+        else:
+            mlp1_net_default_kwargs = {
+                "in_features": None,
+                "out_features": 400,
+                "depth": 0,
+                "num_cells": [],
+                "activation_class": nn.ELU,
+                "bias_last_layer": True,
+                "activate_last_layer": True,
+            }
+            mlp_net_kwargs_net1: Dict = (
+                mlp_net_kwargs_net1 if mlp_net_kwargs_net1 is not None else dict()
+            )
+            mlp1_net_default_kwargs.update(mlp_net_kwargs_net1)
+            self.mlp1 = MLP(**mlp1_net_default_kwargs)
 
         mlp2_net_default_kwargs = {
             "in_features": None,
@@ -913,7 +916,10 @@ class DdpgMlpQNet(nn.Module):
         ddpg_init_last_layer(self.mlp2[-1], 6e-3)
 
     def forward(self, observation: torch.Tensor, action: torch.Tensor) -> torch.Tensor:
-        value = self.mlp2(torch.cat([self.mlp1(observation), action], -1))
+        if self.mlp1 is not None:
+            value = self.mlp2(torch.cat([self.mlp1(observation), action], -1))
+        else:
+            value = self.mlp2(torch.cat([observation, action], -1))
         return value
 
 

@@ -350,19 +350,20 @@ def make_ddpg_actor(
         out_keys = ["state_action_value"]
         q_net = DdpgCnnQNet(**value_net_default_kwargs)
     else:
-        value_net_default_kwargs1 = {"activation_class": ACTIVATIONS[cfg.activation]}
-        value_net_default_kwargs1.update(
-            value_net_kwargs.get(
-                "mlp_net_kwargs_net1",
-                {
-                    "layer_class": linear_layer_class,
-                    "activation_class": ACTIVATIONS[cfg.activation],
-                    "bias_last_layer": True,
-                },
-            )
-        )
+        # value_net_default_kwargs1 = {"activation_class": ACTIVATIONS[cfg.activation]}
+        # value_net_default_kwargs1.update(
+        #     value_net_kwargs.get(
+        #         "mlp_net_kwargs_net1",
+        #         {
+        #             "layer_class": linear_layer_class,
+        #             "activation_class": ACTIVATIONS[cfg.activation],
+        #             "bias_last_layer": True,
+        #         },
+        #     )
+        # )
+        value_net_default_kwargs1 = {}
         value_net_default_kwargs2 = {
-            "num_cells": [400, 300],
+            "num_cells": [256, 256],
             "activation_class": ACTIVATIONS[cfg.activation],
             "bias_last_layer": True,
         }

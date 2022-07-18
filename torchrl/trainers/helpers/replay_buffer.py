@@ -19,13 +19,13 @@ __all__ = ["make_replay_buffer"]
 from torchrl.data.replay_buffers.storages import LazyMemmapStorage
 
 
-def collate_fn(x):
-    return x.to_tensordict()
-
-
 def make_replay_buffer(device: DEVICE_TYPING, cfg: "DictConfig") -> ReplayBuffer:
     """Builds a replay buffer using the config built from ReplayArgsConfig."""
     device = torch.device(device)
+
+    def collate_fn(x):
+        return x.to_tensordict().to(device)
+
     if not cfg.prb:
         buffer = TensorDictReplayBuffer(
             cfg.buffer_size,

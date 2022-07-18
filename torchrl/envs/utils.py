@@ -86,7 +86,7 @@ def step_tensordict(
     if keep_other:
         prohibited = set(keys).union(new_keys)
         other_keys = [key for key in tensordict.keys() if key not in prohibited]
-    select_tensordict = tensordict.select(*other_keys, *keys).clone()
+    select_tensordict = tensordict.select(*other_keys, *keys)
     for new_key, key in zip(new_keys, keys):
         select_tensordict.rename_key(key, new_key, safe=True)
     if next_tensordict is not None:

@@ -18,9 +18,10 @@ from typing import Optional, Tuple, Any
 
 from torchrl.modules import ActorValueOperator, ActorCriticOperator
 from torchrl.objectives import (
-    ClipPPOLoss,
-    DDPGLoss,
     DistributionalDQNLoss,
+    ClipPPOLoss,
+    vecDDPGLoss as DDPGLoss,
+    # DDPGLoss,
     DQNLoss,
     HardUpdate,
     KLPENPPOLoss,

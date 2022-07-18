@@ -292,7 +292,7 @@ def make_collector_offpolicy(
         "pin_memory": cfg.pin_memory,
         "split_trajs": ms is not None,
         # trajectories must be separated if multi-step is used
-        "init_with_lag": cfg.init_with_lag,
+        "init_with_lag": cfg.init_with_lag if hasattr(cfg, "init_with_lag") else False,
         "exploration_mode": cfg.exploration_mode,
     }
 
@@ -337,7 +337,7 @@ def make_collector_onpolicy(
         "pin_memory": cfg.pin_memory,
         "split_trajs": True,
         # trajectories must be separated in online settings
-        "init_with_lag": cfg.init_with_lag,
+        "init_with_lag": cfg.init_with_lag if hasattr(cfg, "init_with_lag") else False,
         "exploration_mode": cfg.exploration_mode,
     }
 
