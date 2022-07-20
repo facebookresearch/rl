@@ -67,12 +67,25 @@ class PPOLoss(LossModule):
         gamma: float = 0.99,
         loss_critic_type: str = "smooth_l1",
         advantage_module: Optional[Callable[[_TensorDict], _TensorDict]] = None,
+        make_stateless: bool = True,
     ):
         super().__init__()
-        self.convert_to_functional(actor, "actor")
-        # we want to make sure there are no duplicates in the params: the
-        # params of critic must be refs to actor if they're shared
-        self.convert_to_functional(critic, "critic", compare_against=self.actor_params)
+        self.make_stateless = make_stateless
+        if self.make_stateless:
+            self.convert_to_functional(actor, "actor")
+            # we want to make sure there are no duplicates in the params: the
+            # params of critic must be refs to actor if they're shared
+            self.convert_to_functional(
+                critic, "critic", compare_against=self.actor_params
+            )
+        else:
+            self.actor = actor
+            self.critic = critic
+            self.actor_params = None
+            self.actor_buffers = None
+            self.critic_params = None
+            self.critic_buffers = None
+
         self.advantage_key = advantage_key
         self.advantage_diff_key = advantage_diff_key
         self.samples_mc_entropy = samples_mc_entropy

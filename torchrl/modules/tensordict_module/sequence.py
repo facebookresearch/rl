@@ -227,6 +227,11 @@ class TensorDictSequence(TensorDictModule):
             for module in self.module:
                 tensordict = module(tensordict)
         else:
+            if any(
+                str(parentclass) == "<class 'higher.patch._MonkeyPatchBase'>"
+                for parentclass in self.__class__.__bases__
+            ):
+                return self.forward(tensordict)
             raise RuntimeError(
                 "TensorDictSequence does not support keyword arguments other than 'tensordict_out', 'params', 'buffers' and 'vmap'"
             )
@@ -322,7 +327,11 @@ class TensorDictSequence(TensorDictModule):
         L = len(self.module)
 
         if isinstance(self.module[-1], ProbabilisticTensorDictModule):
-            if "params" in kwargs and "buffers" in kwargs:
+            if (
+                "params" in kwargs
+                and "buffers" in kwargs
+                and kwargs["params"] is not None
+            ):
                 param_splits = self._split_param(kwargs["params"], "params")
                 buffer_splits = self._split_param(kwargs["buffers"], "buffers")
                 kwargs_pruned = {
@@ -345,7 +354,7 @@ class TensorDictSequence(TensorDictModule):
                             tensordict, params=param, buffers=buffer, **kwargs_pruned
                         )
 
-            elif "params" in kwargs:
+            elif "params" in kwargs and kwargs["params"] is not None:
                 param_splits = self._split_param(kwargs["params"], "params")
                 kwargs_pruned = {
                     key: item for key, item in kwargs.items() if key not in ("params",)
@@ -359,7 +368,7 @@ class TensorDictSequence(TensorDictModule):
                     else:
                         out = module.get_dist(tensordict, params=param, **kwargs_pruned)
 
-            elif not len(kwargs):
+            elif not len(kwargs) or kwargs["params"] is None:
                 for i, module in enumerate(self.module):
                     if i < L - 1:
                         tensordict = module(tensordict)
