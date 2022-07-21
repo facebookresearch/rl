@@ -198,9 +198,19 @@ def test_mask_td(device):
         "key2": torch.randn(4, 5, 10, device=device),
     }
     mask = torch.zeros(4, 5, dtype=torch.bool, device=device).bernoulli_()
+    mask_list = mask.cpu().numpy().tolist()
     td = TensorDict(batch_size=(4, 5), source=d)
+
     td_masked = torch.masked_select(td, mask)
+    td_masked1 = td[mask_list]
     assert len(td_masked.get("key1")) == td_masked.shape[0]
+    assert len(td_masked1.get("key1")) == td_masked1.shape[0]
+
+    mask_list = [False, True, False, True]
+
+    td_masked2 = td[mask_list, 0]
+    torch.testing.assert_allclose(td.get("key1")[mask_list, 0], td_masked2.get("key1"))
+    torch.testing.assert_allclose(td.get("key2")[mask_list, 0], td_masked2.get("key2"))
 
 
 @pytest.mark.parametrize("device", get_available_devices())
@@ -781,6 +791,49 @@ class TestTensorDicts:
         assert_allclose_td(td_masked, td_masked2)
         assert td_masked.batch_size[0] == mask.sum()
         assert td_masked.batch_dims == 1
+
+        mask_list = mask.cpu().numpy().tolist()
+        td_masked3 = td[mask_list]
+        assert_allclose_td(td_masked3, td_masked2)
+        assert td_masked3.batch_size[0] == mask.sum()
+        assert td_masked3.batch_dims == 1
+
+    @pytest.mark.parametrize("from_list", [True, False])
+    def test_masking_set(self, td_name, device, from_list):
+        def zeros_like(item, n, d):
+            if isinstance(item, (MemmapTensor, torch.Tensor)):
+                return torch.zeros(n, *item.shape[d:], dtype=item.dtype, device=device)
+            elif isinstance(item, _TensorDict):
+                batch_size = item.batch_size
+                batch_size = [n, *batch_size[d:]]
+                out = TensorDict(
+                    {k: zeros_like(_item, n, d) for k, _item in item.items()},
+                    batch_size,
+                    device=device,
+                )
+                return out
+
+        torch.manual_seed(1)
+        td = getattr(self, td_name)(device)
+        mask = torch.zeros(td.batch_size, dtype=torch.bool, device=device).bernoulli_(
+            0.8
+        )
+        n = mask.sum()
+        d = td.ndimension()
+        pseudo_td = TensorDict(
+            {k: zeros_like(item, n, d) for k, item in td.items()}, [n], device=device
+        )
+        if from_list:
+            td_mask = mask.cpu().numpy().tolist()
+        else:
+            td_mask = mask
+        if td_name == "stacked_td":
+            with pytest.raises(RuntimeError, match="is not supported"):
+                td[td_mask] = pseudo_td
+        else:
+            td[td_mask] = pseudo_td
+            for k, item in td.items():
+                assert (item[mask] == 0).all()
 
     @pytest.mark.skipif(
         torch.cuda.device_count() == 0, reason="No cuda device detected"
@@ -1779,15 +1832,9 @@ def test_stack_keys():
     td.get("e")
 
 
-def test_getitem_batch_size():
-    shape = [
-        10,
-        7,
-        11,
-        5,
-    ]
-    mocking_tensor = torch.zeros(*shape)
-    for idx in [
+@pytest.mark.parametrize(
+    "idx",
+    [
         (slice(None),),
         slice(None),
         (3, 4),
@@ -1800,10 +1847,22 @@ def test_getitem_batch_size():
             torch.tensor([0, 10, 2]),
             torch.tensor([2, 4, 1]),
         ),
-    ]:
-        expected_shape = mocking_tensor[idx].shape
-        resulting_shape = _getitem_batch_size(shape, idx)
-        assert expected_shape == resulting_shape, idx
+        torch.zeros(10, 7, 11, 5, dtype=torch.bool).bernoulli_(),
+        torch.zeros(10, 7, 11, dtype=torch.bool).bernoulli_(),
+        (0, torch.zeros(7, dtype=torch.bool).bernoulli_()),
+    ],
+)
+def test_getitem_batch_size(idx):
+    shape = [
+        10,
+        7,
+        11,
+        5,
+    ]
+    mocking_tensor = torch.zeros(*shape)
+    expected_shape = mocking_tensor[idx].shape
+    resulting_shape = _getitem_batch_size(shape, idx)
+    assert expected_shape == resulting_shape, (idx, expected_shape, resulting_shape)
 
 
 @pytest.mark.parametrize("device", get_available_devices())

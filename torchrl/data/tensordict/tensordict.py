@@ -1065,7 +1065,10 @@ dtype=torch.float32)},
         """
         d = dict()
         for key, value in self.items():
-            mask_expand = mask.squeeze(-1)
+            while mask.ndimension() > self.batch_dims:
+                mask_expand = mask.squeeze(-1)
+            else:
+                mask_expand = mask
             value_select = value[mask_expand]
             d[key] = value_select
         dim = int(mask.sum().item())
@@ -1471,6 +1474,17 @@ dtype=torch.float32)},
             >>> print(td.get("a"))  # values have not changed
 
         """
+        if isinstance(idx, list):
+            idx = torch.tensor(idx, device=self.device)
+        if isinstance(idx, tuple) and any(
+            isinstance(sub_index, list) for sub_index in idx
+        ):
+            idx = tuple(
+                torch.tensor(sub_index, device=self.device)
+                if isinstance(sub_index, list)
+                else sub_index
+                for sub_index in idx
+            )
         if isinstance(idx, str):
             return self.get(idx)
         if isinstance(idx, tuple) and sum(
@@ -1487,8 +1501,8 @@ dtype=torch.float32)},
                 return out[idx[1:]]
             else:
                 return out
-        elif isinstance(idx, torch.Tensor) and idx.dtype == torch.bool:
-            return self.masked_select(idx)
+        # elif isinstance(idx, torch.Tensor) and idx.dtype == torch.bool:
+        #     return self.masked_select(idx)
 
         contiguous_input = (int, slice)
         return_simple_view = isinstance(idx, contiguous_input) or (
@@ -1521,6 +1535,17 @@ dtype=torch.float32)},
     def __setitem__(self, index: INDEX_TYPING, value: _TensorDict) -> None:
         if index is Ellipsis or (isinstance(index, tuple) and Ellipsis in index):
             index = convert_ellipsis_to_idx(index, self.batch_size)
+        if isinstance(index, list):
+            index = torch.tensor(index, device=self.device)
+        if isinstance(index, tuple) and any(
+            isinstance(sub_index, list) for sub_index in index
+        ):
+            index = tuple(
+                torch.tensor(sub_index, device=self.device)
+                if isinstance(sub_index, list)
+                else sub_index
+                for sub_index in index
+            )
         if isinstance(index, tuple) and sum(
             isinstance(_index, str) for _index in index
         ) not in [len(index), 0]:
@@ -3291,6 +3316,31 @@ class LazyStackedTensorDict(_TensorDict):
             stack_dim=self.stack_dim,
         )
 
+    def __setitem__(self, item: INDEX_TYPING, value: _TensorDict) -> _TensorDict:
+        if isinstance(item, list):
+            item = torch.tensor(item, device=self.device)
+        if isinstance(item, tuple) and any(
+            isinstance(sub_index, list) for sub_index in item
+        ):
+            item = tuple(
+                torch.tensor(sub_index, device=self.device)
+                if isinstance(sub_index, list)
+                else sub_index
+                for sub_index in item
+            )
+        if (isinstance(item, torch.Tensor) and item.dtype is torch.bool) or (
+            isinstance(item, tuple)
+            and any(
+                isinstance(_item, torch.Tensor) and _item.dtype is torch.bool
+                for _item in item
+            )
+        ):
+            raise RuntimeError(
+                "setting values to a LazyStackTensorDict using boolean values is not supported yet."
+                "If this feature is needed, feel free to raise an issue on github."
+            )
+        return super().__setitem__(item, value)
+
     def __getitem__(self, item: INDEX_TYPING) -> _TensorDict:
         if item is Ellipsis or (isinstance(item, tuple) and Ellipsis in item):
             item = convert_ellipsis_to_idx(item, self.batch_size)
@@ -3298,6 +3348,17 @@ class LazyStackedTensorDict(_TensorDict):
             isinstance(_item, str) for _item in item
         ) not in [len(item), 0]:
             raise IndexError(_STR_MIXED_INDEX_ERROR)
+        if isinstance(item, list):
+            item = torch.tensor(item, device=self.device)
+        if isinstance(item, tuple) and any(
+            isinstance(sub_index, list) for sub_index in item
+        ):
+            item = tuple(
+                torch.tensor(sub_index, device=self.device)
+                if isinstance(sub_index, list)
+                else sub_index
+                for sub_index in item
+            )
         if isinstance(item, str):
             return self.get(item)
         elif isinstance(item, tuple) and all(
@@ -3761,6 +3822,17 @@ class SavedTensorDict(_TensorDict):
         return super().__reduce__(*args, **kwargs)
 
     def __getitem__(self, idx: INDEX_TYPING) -> _TensorDict:
+        if isinstance(idx, list):
+            idx = torch.tensor(idx, device=self.device)
+        if isinstance(idx, tuple) and any(
+            isinstance(sub_index, list) for sub_index in idx
+        ):
+            idx = tuple(
+                torch.tensor(sub_index, device=self.device)
+                if isinstance(sub_index, list)
+                else sub_index
+                for sub_index in idx
+            )
         if idx is Ellipsis or (isinstance(idx, tuple) and Ellipsis in idx):
             idx = convert_ellipsis_to_idx(idx, self.batch_size)
 
