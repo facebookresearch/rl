@@ -292,6 +292,7 @@ class TransformedEnv(_EnvClass):
         **kwargs,
     ):
         kwargs.setdefault("device", env.device)
+        super().__init__(**kwargs)
         device = kwargs["device"]
         self._set_env(env, device)
         if transform is None:
@@ -309,7 +310,7 @@ class TransformedEnv(_EnvClass):
         self._observation_spec = None
         self.batch_size = self.base_env.batch_size
 
-        super().__init__(**kwargs)
+        
 
     def _set_env(self, env: _EnvClass, device) -> None:
         self.base_env = env.to(device)

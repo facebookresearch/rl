@@ -108,7 +108,7 @@ class Specs:
         return td
 
 
-class _EnvClass:
+class _EnvBase(torch.nn.Module):
     """
     Abstract environment parent class for TorchRL.
 
@@ -131,17 +131,13 @@ class _EnvClass:
             steps if no policy is provided)
 
     """
-
-    from_pixels: bool
-    device = torch.device("cpu")
-    _inplace_update: bool
-
     def __init__(
         self,
         device: DEVICE_TYPING = "cpu",
         dtype: Optional[Union[torch.dtype, np.dtype]] = None,
         batch_size: Optional[torch.Size] = None,
     ):
+        super().__init__()
         if device is not None:
             self.device = torch.device(device)
         self._is_done = None
@@ -256,18 +252,8 @@ class _EnvClass:
 
         del tensordict_out
         return tensordict
-
-    def state_dict(self) -> OrderedDict:
-        return OrderedDict()
-
-    def load_state_dict(self, state_dict: OrderedDict, **kwargs) -> None:
-        pass
-
-    def eval(self) -> _EnvClass:
-        return self
-
-    def train(self, mode: bool = True) -> _EnvClass:
-        return self
+    def forward(self, tensordict: _TensorDict) -> _TensorDict:
+        return self.step(tensordict)
 
     def _step(
         self,
@@ -284,77 +270,13 @@ class _EnvClass:
         execute_step: bool = True,
         **kwargs,
     ) -> _TensorDict:
-        """Resets the environment.
-        As for step and _step, only the private method `_reset` should be overwritten by _EnvClass subclasses.
-
-        Args:
-            tensordict (_TensorDict, optional): tensordict to be used to contain the resulting new observation.
-                In some cases, this input can also be used to pass argument to the reset function.
-            execute_step (bool, optional): if True, a `step_tensordict` is executed on the output TensorDict,
-                hereby removing the `"next_"` prefixes from the keys.
-            kwargs (optional): other arguments to be passed to the native
-                reset function.
-        Returns:
-            a tensordict (or the input tensordict, if any), modified in place with the resulting observations.
-
-        """
-        if tensordict is None:
-            tensordict = TensorDict({}, device=self.device, batch_size=self.batch_size)
-        tensordict_reset = self._reset(tensordict, **kwargs)
-        if tensordict_reset is tensordict:
-            raise RuntimeError(
-                "_EnvClass._reset should return outplace changes to the input "
-                "tensordict. Consider emptying the TensorDict first (e.g. tensordict.empty() or "
-                "tensordict.select()) inside _reset before writing new tensors onto this new instance."
-            )
-        if not isinstance(tensordict_reset, _TensorDict):
-            raise RuntimeError(
-                f"env._reset returned an object of type {type(tensordict_reset)} but a TensorDict was expected."
-            )
-
-        self.is_done = tensordict_reset.get(
-            "done",
-            torch.zeros(self.batch_size, dtype=torch.bool, device=self.device),
-        )
-        if self.is_done:
-            raise RuntimeError(
-                f"Env {self} was done after reset. This is (currently) not allowed."
-            )
-        if execute_step:
-            tensordict_reset = step_tensordict(
-                tensordict_reset,
-                exclude_done=False,
-                exclude_reward=True,
-                exclude_action=True,
-            )
-        if tensordict is not None:
-            tensordict.update(tensordict_reset)
-        else:
-            tensordict = tensordict_reset
-        return tensordict
+        raise NotImplementedError
 
     def numel(self) -> int:
         return prod(self.batch_size)
 
     def set_seed(self, seed: int) -> int:
-        """Sets the seed of the environment and returns the next seed to be used (
-        which is the input seed if a single environment is present)
-
-        Args:
-            seed: integer
-
-        Returns:
-            integer representing the "next seed": i.e. the seed that should be
-            used for another environment if created concomittently to this environment.
-
-        """
-        if seed is not None:
-            torch.manual_seed(seed)
-        self._set_seed(seed)
-        if seed is not None:
-            new_seed = seed_generator(seed)
-            seed = new_seed
-        return seed
+        raise NotImplementedError
 
     def _set_seed(self, seed: Optional[int]):
         raise NotImplementedError
@@ -538,6 +460,136 @@ class _EnvClass:
         if not self.is_closed:
             self.close()
 
+    def to(self, device: DEVICE_TYPING) -> _EnvClass:
+        device = torch.device(device)
+        if device == self.device:
+            return self
+        self.action_spec = self.action_spec.to(device)
+        self.reward_spec = self.reward_spec.to(device)
+        self.observation_spec = self.observation_spec.to(device)
+        self.input_spec = self.input_spec.to(device)
+
+        self.is_done = self.is_done.to(device)
+        self.device = device
+        return self
+
+class _EnvClass(_EnvBase):
+    """
+    Abstract environment parent class for TorchRL.
+
+    Properties:
+        - observation_spec (CompositeSpec): sampling spec of the observations;
+        - action_spec (TensorSpec): sampling spec of the actions;
+        - input_spec (CompositeSpec): sampling spec of the actions and/or other inputs;
+        - reward_spec (TensorSpec): sampling spec of the rewards;
+        - batch_size (torch.Size): number of environments contained in the instance;
+        - device (torch.device): device where the env input and output are expected to live
+        - is_done (torch.Tensor): boolean value(s) indicating if the environment has reached a done state since the
+            last reset
+
+    Methods:
+        step (_TensorDict -> _TensorDict): step in the environment
+        reset (_TensorDict, optional -> _TensorDict): reset the environment
+        set_seed (int -> int): sets the seed of the environment
+        rand_step (_TensorDict, optional -> _TensorDict): random step given the action spec
+        rollout (Callable, ... -> _TensorDict): executes a rollout in the environment with the given policy (or random
+            steps if no policy is provided)
+
+    """
+    def __init__(
+        self,
+        device: DEVICE_TYPING = "cpu",
+        dtype: Optional[Union[torch.dtype, np.dtype]] = None,
+        batch_size: Optional[torch.Size] = None,
+    ):
+        super().__init__(device, dtype, batch_size)
+        self.eval()
+    
+    def set_seed(self, seed: int) -> int:
+        """Sets the seed of the environment and returns the next seed to be used (
+        which is the input seed if a single environment is present)
+
+        Args:
+            seed: integer
+
+        Returns:
+            integer representing the "next seed": i.e. the seed that should be
+            used for another environment if created concomittently to this environment.
+
+        """
+        if seed is not None:
+            torch.manual_seed(seed)
+        self._set_seed(seed)
+        if seed is not None:
+            new_seed = seed_generator(seed)
+            seed = new_seed
+        return seed
+    def state_dict(self) -> OrderedDict:
+        return OrderedDict()
+
+    def load_state_dict(self, state_dict: OrderedDict, **kwargs) -> None:
+        pass
+
+    def eval(self) -> _EnvClass:
+        return self
+
+    def train(self, mode: bool = True) -> _EnvClass:
+        return self
+    
+    def reset(
+        self,
+        tensordict: Optional[_TensorDict] = None,
+        execute_step: bool = True,
+        **kwargs,
+    ) -> _TensorDict:
+        """Resets the environment.
+        As for step and _step, only the private method `_reset` should be overwritten by _EnvClass subclasses.
+
+        Args:
+            tensordict (_TensorDict, optional): tensordict to be used to contain the resulting new observation.
+                In some cases, this input can also be used to pass argument to the reset function.
+            execute_step (bool, optional): if True, a `step_tensordict` is executed on the output TensorDict,
+                hereby removing the `"next_"` prefixes from the keys.
+            kwargs (optional): other arguments to be passed to the native
+                reset function.
+        Returns:
+            a tensordict (or the input tensordict, if any), modified in place with the resulting observations.
+
+        """
+        if tensordict is None:
+            tensordict = TensorDict({}, device=self.device, batch_size=self.batch_size)
+        tensordict_reset = self._reset(tensordict, **kwargs)
+        if tensordict_reset is tensordict:
+            raise RuntimeError(
+                "_EnvClass._reset should return outplace changes to the input "
+                "tensordict. Consider emptying the TensorDict first (e.g. tensordict.empty() or "
+                "tensordict.select()) inside _reset before writing new tensors onto this new instance."
+            )
+        if not isinstance(tensordict_reset, _TensorDict):
+            raise RuntimeError(
+                f"env._reset returned an object of type {type(tensordict_reset)} but a TensorDict was expected."
+            )
+
+        self.is_done = tensordict_reset.get(
+            "done",
+            torch.zeros(self.batch_size, dtype=torch.bool, device=self.device),
+        )
+        if self.is_done:
+            raise RuntimeError(
+                f"Env {self} was done after reset. This is (currently) not allowed."
+            )
+        if execute_step:
+            tensordict_reset = step_tensordict(
+                tensordict_reset,
+                exclude_done=False,
+                exclude_reward=True,
+                exclude_action=True,
+            )
+        if tensordict is not None:
+            tensordict.update(tensordict_reset)
+        else:
+            tensordict = tensordict_reset
+        return tensordict
     def to(self, device: DEVICE_TYPING) -> _EnvClass:
         device = torch.device(device)
         if device == self.device:
