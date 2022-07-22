@@ -164,17 +164,13 @@ def test_actorcritic(device):
         list(op.get_value_operator().parameters()) + list(op.module[0].parameters())
     )
     value_params2 = set(value_op.parameters())
-    assert len(value_params.difference(value_params2)) == 0 and len(
-        value_params.intersection(value_params2)
-    ) == len(value_params)
+    assert value_params == value_params2
 
     policy_params = set(
         list(op.get_policy_operator().parameters()) + list(op.module[0].parameters())
     )
     policy_params2 = set(policy_op.parameters())
-    assert len(policy_params.difference(policy_params2)) == 0 and len(
-        policy_params.intersection(policy_params2)
-    ) == len(policy_params)
+    assert policy_params == policy_params2
 
 
 @pytest.mark.parametrize("device", get_available_devices())

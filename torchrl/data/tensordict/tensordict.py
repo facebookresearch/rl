@@ -3307,11 +3307,6 @@ class LazyStackedTensorDict(_TensorDict):
         self._valid_keys = sorted(list(valid_keys))
 
     def select(self, *keys: str, inplace: bool = False) -> _TensorDict:
-        # if len(set(self.valid_keys).intersection(keys)) != len(keys):
-        #     raise KeyError(
-        #         f"Selected and existing keys mismatch, got self.valid_keys"
-        #         f"={self.valid_keys} and keys={keys}"
-        #     )
         tensordicts = [td.select(*keys, inplace=inplace) for td in self.tensordicts]
         if inplace:
             return self
@@ -4384,9 +4379,7 @@ def _check_keys(
             if not strict:
                 keys = keys.intersection(set(td.keys()))
             else:
-                if len(set(td.keys()).difference(keys)) or len(set(td.keys())) != len(
-                    keys
-                ):
+                if set(td.keys()) == keys:
                     raise KeyError(
                         f"got keys {keys} and {set(td.keys())} which are "
                         f"incompatible"
