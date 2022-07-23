@@ -213,7 +213,7 @@ def make_trainer(
         trainer.register_op("process_optim_batch", rb_trainer.sample)
         trainer.register_op("post_loss", rb_trainer.update_priority)
     else:
-        trainer.register_op("batch_process", mask_batch)
+        # trainer.register_op("batch_process", mask_batch)
         trainer.register_op(
             "process_optim_batch",
             BatchSubSampler(batch_size=cfg.batch_size, sub_traj_len=cfg.sub_traj_len),

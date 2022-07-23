@@ -14,8 +14,8 @@ lr: 3e-4
 from_pixels: 0
 #collector_devices: [cuda:1]
 collector_devices: [cpu]
-env_per_collector: 4
-num_workers: 4
+env_per_collector: 2
+num_workers: 2
 lr_scheduler: ""
 record_interval: 100
 max_frames_per_traj: -1
