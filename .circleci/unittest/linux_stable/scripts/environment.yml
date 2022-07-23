@@ -26,3 +26,4 @@ dependencies:
     - hydra-core
     - tensorboard
     - dm_control
+    - PyOpenGL==3.1.0

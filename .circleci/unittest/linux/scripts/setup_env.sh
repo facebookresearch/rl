@@ -57,8 +57,10 @@ if [[ $OSTYPE == 'darwin'* ]]; then
   PRIVATE_MUJOCO_GL=glfw
 else
   conda install -y -c conda-forge mesa
+  conda install -y -c conda-forge libglvnd-glx-cos7-x86_64
   conda install -y -c conda-forge mesalib
-  PRIVATE_MUJOCO_GL=osmesa
+  conda install -y -c conda-forge libglvnd-egl-cos7-x86_64
+  PRIVATE_MUJOCO_GL=egl
 fi
 
 export MUJOCO_GL=$PRIVATE_MUJOCO_GL

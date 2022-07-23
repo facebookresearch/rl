@@ -40,7 +40,7 @@ conda activate "${env_dir}"
 
 # 3. Install mujoco
 printf "* Installing mujoco and related\n"
-mkdir $root_dir/.mujoco
+mkdir -p $root_dir/.mujoco
 cd $root_dir/.mujoco/
 wget https://github.com/deepmind/mujoco/releases/download/2.1.1/mujoco-2.1.1-linux-x86_64.tar.gz
 tar -xf mujoco-2.1.1-linux-x86_64.tar.gz
@@ -58,8 +58,10 @@ if [[ $OSTYPE == 'darwin'* ]]; then
   PRIVATE_MUJOCO_GL=glfw
 else
   conda install -y -c conda-forge mesa
+  conda install -y -c conda-forge libglvnd-glx-cos7-x86_64
   conda install -y -c conda-forge mesalib
-  PRIVATE_MUJOCO_GL=osmesa
+  conda install -y -c conda-forge libglvnd-egl-cos7-x86_64
+  PRIVATE_MUJOCO_GL=egl
 fi
 
 export MUJOCO_GL=$PRIVATE_MUJOCO_GL
