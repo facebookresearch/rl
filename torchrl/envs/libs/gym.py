@@ -266,15 +266,18 @@ class GymEnv(GymWrapper):
                 f" {self.git_url}"
             )
         from_pixels = kwargs.get("from_pixels", False)
+        if from_pixels:
+            kwargs["render_mode"] = "single_rgb_array"
         if "from_pixels" in kwargs:
             del kwargs["from_pixels"]
+
         pixels_only = kwargs.get("pixels_only", True)
         if "pixels_only" in kwargs:
             del kwargs["pixels_only"]
         try:
             with warnings.catch_warnings(record=True) as w:
                 env = self.lib.make(env_name, frameskip=self.frame_skip, **kwargs)
-                if len(w) and "frameskip" in str(w[-1].message):
+                if any("frameskip" in str(_w.message) for _w in w):
                     raise TypeError("unexpected keyword argument 'frameskip'")
             self.wrapper_frame_skip = 1
         except TypeError as err:

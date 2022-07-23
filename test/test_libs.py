@@ -84,7 +84,10 @@ def test_gym(env_name, frame_skip, from_pixels, pixels_only):
         base_env = gym.make(env_name, frameskip=frame_skip)
         frame_skip = 1
     else:
-        base_env = gym.make(env_name)
+        if from_pixels:
+            base_env = gym.make(env_name, render_mode="single_rgb_array")
+        else:
+            base_env = gym.make(env_name)
 
     if from_pixels and not _is_from_pixels(base_env):
         base_env = PixelObservationWrapper(base_env, pixels_only=pixels_only)
